@@ -10,9 +10,9 @@ from typing import Any, Dict, List, Optional
 import dearpygui.dearpygui as dpg  # type: ignore
 import numpy as np
 from aiohttp import web
-from node.node_abc import DpgNodeABC  # type: ignore
 from node_editor.util import dpg_set_value, get_tag_name_list  # type: ignore
 
+from node.node_abc import DpgNodeABC  # type: ignore
 
 # HTML content
 HTML_CONTENT = """
@@ -496,13 +496,6 @@ class Node(DpgNodeABC):
         setting_dict: Optional[Dict[str, Any]] = None,
         callback: Optional[Any] = None,
     ) -> str:
-        # Start the WebSocket server in a separate thread when the node is added
-        if self._server_thread is None:
-            self._server_thread = threading.Thread(
-                target=self._run_server_in_thread, daemon=True
-            )
-            self._server_thread.start()
-
         # Tag names
         tag_name_list: List[Any] = get_tag_name_list(
             node_id,
@@ -601,6 +594,13 @@ class Node(DpgNodeABC):
                         default_value="elapsed time(ms)",
                     )
 
+        # Start the WebSocket server in a separate thread when the node is added
+        if self._server_thread is None:
+            self._server_thread = threading.Thread(
+                target=self._run_server_in_thread, daemon=True
+            )
+            self._server_thread.start()
+
         return tag_node_name
 
     def update(
@@ -665,6 +665,10 @@ class Node(DpgNodeABC):
         elif current_status == "pause":
             pass
         elif current_status == "stop":
+            # Discard buffered data if not playing
+            while not self._audio_queue.empty():
+                self._audio_queue.get()
+
             # Initialize buffer
             self._node_data[str(node_id)]["buffer"] = np.zeros(0, dtype=np.float32)
 
